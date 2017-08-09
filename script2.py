@@ -27,6 +27,22 @@ connection = pymssql.connect(server='66.232.22.196',
 #---
 #------------- Finaliza Configuración de BD. -------------#
 
+#------------- Inicia Consulta a BD para Obtener Datos Almacenados. -------------#
+try:
+    #---
+    with connection.cursor() as cursor:
+        #--- Extraccion de los datos de los portales a analizar de SCR_PORTALES
+        sql = "SELECT ID_PORTAL, NOMBRE, URL, DIAS_VERIFICACION FROM SCR_PORTALES WHERE ESTADIST_CALC = 1"
+        cursor.execute(sql)
+        SETTING = cursor.fetchall() #<--- Lista con los portales activos.
+        #---
+        #print(PORTAL)
+        print('Correcto -> Extracción de los datos del "portal" a usar.')
+#---
+except _mssql.MssqlDatabaseException as e:
+    print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
+#---
+
 #------------- Inicio de las funciones Generales -------------#
 #---
 

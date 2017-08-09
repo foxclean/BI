@@ -38,3 +38,4 @@ connection = pymssql.connect(server='66.232.22.196',
 
 #---
 #------------- Fin de declaración de variables -------------#
+
