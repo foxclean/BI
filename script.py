@@ -35,7 +35,201 @@ connection = pymssql.connect(server='66.232.22.196',
 
 #------------- Inicio de declaración de variables -------------#
 #---
-
+SETTING = []
+PROPIEDADES = []
+CONSULTA = []
+COMPETENCIA_DIRECTA = []
+today = (datetime.datetime.now()).date() #<--- Fecha de hoy.
 #---
 #------------- Fin de declaración de variables -------------#
+
+#-- La funion que une anunciantes con consulta, tiene que recibir dun parametro, el cual sera una fecha, esa fecha tiene que ser igual o mayor a la fecha de entrada, y igual o menor a la fehca de salida (es decir puede estar entre medio)
+#-- Funcion para listar los anuncios de la empresa:
+#-- Funcion para listar la competencia directa:
+#-- 
+#------------- Inicia Consulta a BD para Obtener Datos Almacenados. -------------#
+try:
+    #---
+    with connection.cursor() as cursor:
+        #--- Extraccion de los datos de los portales a analizar de SCR_PORTALES
+        sql = "SELECT ID_PORTAL, NOMBRE, URL, DIAS_VERIFICACION FROM SCR_PORTALES WHERE ESTADIST_CALC = 1"        
+        cursor.execute(sql)
+        SETTING = cursor.fetchall() #<--- Lista con los portales activos.
+        #---
+        #print(PORTAL)
+        print('Correcto -> Extracción de los datos del "portal" a usar.')
+#---
+except _mssql.MssqlDatabaseException as e:
+    print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
+#---
+print(SETTING)
+#---
+try:
+    #---
+    with connection.cursor() as cursor:
+        #--- Extraccion de los datos de los portales a analizar de SCR_PORTALES
+        sql = "SELECT p.ID_PROPIEDAD,pa.ID_ANUNCIO,a.ID_PORTAL,p.[ID_PROPIETARIO],p.[NOMBRE_PROPIEDAD],p.[GRUPO_ID],p.[IDHAB],h.[NOMBRE],h.[numpersonas],a.TITULO,p.[DORMITORIOS],p.[BAÑOS],p.[TELEFONO],p.[MOVIL],p.[DIRECCION],p.[codigo_postal],p.[poblacion],p.[PROVINCIA],p.[LATITUD],p.[LONGITUD],p.[PAIS] FROM [foxclea_tareas].[foxclea_tareas].[AV_PROPIEDADES] p join av_habitacion h on p.[IDHAB] = h.[IDHAB] JOIN SCR_PROPIEDADES_ANUNCIOS pa on p.ID_PROPIEDAD = pa.ID_PROPIEDAD JOIN SCR_ANUNCIOS a on pa.ID_ANUNCIO = a.ID_ANUNCIO;"        
+        cursor.execute(sql)
+        PROPIEDADES = cursor.fetchall() #<--- Lista con los portales activos.
+        #---
+        #print(PORTAL)
+        print('Correcto -> Extracción de los datos del "portal" a usar.')
+#---
+except _mssql.MssqlDatabaseException as e:
+    print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
+#---
+print(PROPIEDADES)
+#---
+try:
+    #---
+    with connection.cursor() as cursor:
+        #--- Extraccion de los datos de los portales a analizar de SCR_PORTALES
+        sql = "SELECT CD.[ID],CD.[ID_ANUNCIO],CD.[ID_COMPETENCIA],CD.[NIVEL_COMPETITIVO],C.[TITULO],C.[ID_PORTAL],C.[TIPO],C.[URL],C.[CAPACIDAD],C.[NCAMAS],C.[PAIS],C.[CIUDAD],C.[CALIDAD] FROM [SCR_COMPETENCIA_DIRECTA] CD JOIN [SCR_COMPETENCIA] C ON CD.[ID_COMPETENCIA] = C.[ID_COMPETENCIA];"        
+        cursor.execute(sql)
+        COMPETENCIA_DIRECTA = cursor.fetchall() #<--- Lista con los portales activos.
+        #---
+        #print(PORTAL)
+        print('Correcto -> Extracción de los datos del "portal" a usar.')
+#---
+except _mssql.MssqlDatabaseException as e:
+    print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
+#---
+print(COMPETENCIA_DIRECTA)
+#---
+try:
+    #---
+    with connection.cursor() as cursor:
+        #--- Extraccion de los datos de los portales a analizar de SCR_PORTALES
+        sql = "SELECT [ID_CONSULTA],[ID_ANUNCIO],[ID_PORTAL],[PAIS],[CIUDAD],[ZONA],[ADULTOS],[NIÑOS],[BEBES],[ESTADO] FROM [foxclea_tareas].[SCR_CONSULTAS]"
+        cursor.execute(sql)
+        CONSULTA = cursor.fetchall() #<--- Lista con los portales activos.
+        #---
+        #print(PORTAL)
+        print('Correcto -> Extracción de los datos del "portal" a usar.')
+#---
+except _mssql.MssqlDatabaseException as e:
+    print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
+#---
+print(CONSULTA)
+#---
+def get_extract_dates(day,portal,consulta,tipo):
+#---
+    try:
+        #---
+        with connection.cursor() as cursor:
+            #--- Extraccion de los datos de los portales a analizar de SCR_PORTALES
+            sql = "SELECT [ID_ANUNCIANTE],[ID_COMPETENCIA],[ID_ANUNCIO],[FECHAI],[FECHAF],[ORDEN],[ID_PORTAL],[PRECIO],[ID_CONSULTA],[TIPO],[N_CAMA],[RATIO],[FECHA_INGRESO] FROM [foxclea_tareas].[foxclea_tareas].[SCR_ANUNCIANTES] WHERE foxclea_tareas.solo_fecha(%s) between [FECHAI] and [FECHAF]-1 AND ID_PORTAL = %s AND ID_CONSULTA = %s ORDER BY [FECHAI] ASC"
+            cursor.execute(sql,(day,portal,consulta))
+            return cursor.fetchall() #<--- Lista con los portales activos.
+            #---
+            #print(PORTAL)
+            print('Correcto -> Extracción de los datos del "portal" a usar.')
+    #---
+    except _mssql.MssqlDatabaseException as e:
+        print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
+#---
+print(CONSULTA)
+#---
+def get_reservation_dates(day):
+    try:
+    #---
+        with connection.cursor() as cursor:
+            sql = "SELECT R.ID_RESERVA, R.GRUPO_ID,R.ID_HAB,R.FECHA_RESERVA, R.FECHA_ENTRADA, R.FECHA_SALIDA, R.NO_PERSONAS, R.NO_NIÑOS, R.PRECIO, R.PROCEDENCIA,  R.ESTADO, R.PRECIOextra, R.COMISION, R.GASTOENERGIABAS, R.GASTOLIMREAL , S.NOMBRE,P.NOMBRE_PROPIEDAD,P.ID_PROPIEDAD,R.ID_PROPIEDAD FROM AV_RESERVAS R LEFT JOIN BMSUBCON S ON NUMERO = R.AGENCIA LEFT JOIN  AV_PROPIEDADES P on  P.ID_PROPIEDAD = R.ID_PROPIEDAD WHERE foxclea_tareas.solo_fecha('"+ day +"') between R.fecha_entrada and R.fecha_salida-1 and R.ESTADO<>'CANCELADA' ORDER BY R.FECHA_ENTRADA ASC;"
+            print(sql)
+            cursor.execute(sql)
+            return cursor.fetchall() #<--- Lista con los portales activos.
+    #---
+    except _mssql.MssqlDatabaseException as e:
+        print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
+#---
+
+#---
+def get_last_calc(id):
+    try:
+    #---
+        with connection.cursor() as cursor:
+            sql = "SELECT TOP 1 * FROM SCR_CALENDARIO_ANALISIS WHERE ID_ANUNCIO = %s ORDER BY [ID] DESC"            
+            cursor.execute(sql,id)
+            return cursor.fetchone() #<--- Lista con los portales activos.
+    #---
+    except _mssql.MssqlDatabaseException as e:
+        print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
+#---
+def get_calendar(id):
+    try:
+    #---
+        with connection.cursor() as cursor:
+            sql = "SELECT * FROM SCR_CALENDARIO_ANALISIS WHERE ID_ANUNCIO = %s ORDER BY [ID] DESC"            
+            cursor.execute(sql,id)
+            return cursor.fetchall() #<--- Lista con los portales activos.
+    #---
+    except _mssql.MssqlDatabaseException as e:
+        print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
+#---
+def get_last_regis(id_port):
+    #---
+    try:
+        #---
+        last_result = [] #<--- Lista donde se almacena el ultimo resulta de SCR_PORTALES_DETALLES, del portal especificado.
+        with connection.cursor() as cursor:
+            #--- Consulta especifica
+            sql = "SELECT TOP 1 * FROM SCR_PORTALES_DETALLE WHERE ID_PORTAL = %s ORDER BY [ID] DESC "
+            cursor.execute(sql, id_port)
+            last_result = cursor.fetchone()
+            #---
+            #print(PORTAL)
+            print('Correcto -> Extracción de los datos del "portal" a usar.')
+    #---
+    except _mssql.MssqlDatabaseException as e:
+        print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
+    #---   
+    return last_result
+
+    #---
+#--- Se genera una lista con los datos de un campo especifico.
+def get_one_field_data(data, index):
+    temp_resul = []
+    for t_data in data:
+        if (t_data[index] == None):
+            temp_resul.append(0)
+        else:
+            temp_resul.append(t_data[index])
+    #---
+    return temp_resul #<--- Devuelve una lista con todos los datos de un campo en especifico.
+#---
+#reserv_day = get_reservation_dates('2017-09-15')
+#print(reserv_day)
+
+for prop in PROPIEDADES:
+    last_calc = get_last_calc(prop[1])
+    if (last_calc == None):
+        print("Noooooo")
+
+    cal_data = get_calendar(prop[1])
+    if (cal_data == None):
+        print("nOP")
+    else:
+        print("yes",cal_data)
+
+    id_consult = 0
+    for consult in CONSULTA:
+        if (consult[6] == prop[8]) and (consult[2] == prop[2]):
+            id_consult = consult[0]
+    print(id_consult)
+
+    PORT_DETAIL = []
+    PORT_DETAIL = get_last_regis(prop[2])
+    begin_date =  today + datetime.timedelta(days=int(PORT_DETAIL[13]))
+    print(begin_date)
+
+    data_Extra = get_extract_dates("2017-09-17",prop[2],id_consult,"")
+    print("data: ",len(data_Extra))
+
+    data = get_one_field_data(data_Extra,7)
+    PRECIO_MEDIA = round(stats.mean(data),2)
+    print("Precio :",PRECIO_MEDIA)    
+    min_price = min(i for i in data if i > 39)
+    print("Min Price",min_price)
+    print("Max Price",max(data))
+
 
