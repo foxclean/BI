@@ -52,7 +52,7 @@ try:
     #---
     with connection.cursor() as cursor:
         #--- Extraccion de los datos de los portales a analizar de SCR_PORTALES
-        sql = "SELECT ID_PORTAL, NOMBRE, URL, DIAS_VERIFICACION FROM SCR_PORTALES WHERE ESTADIST_CALC = 1"        
+        sql = "SELECT ID_PORTAL, NOMBRE, URL, DIAS_VERIFICACION, MAX_DAYS, PRICE_PROM,PRICE_MIN,PRICE_MAX FROM SCR_PORTALES WHERE CALC_PRICE = 1"        
         cursor.execute(sql)
         SETTING = cursor.fetchall() #<--- Lista con los portales activos.
         #---
@@ -62,7 +62,9 @@ try:
 except _mssql.MssqlDatabaseException as e:
     print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
 #---
+print('---------')
 print(SETTING)
+print('---------')
 #---
 try:
     #---
@@ -150,7 +152,7 @@ def get_last_calc(id):
         with connection.cursor() as cursor:
             sql = "SELECT TOP 1 * FROM SCR_CALENDARIO_ANALISIS WHERE ID_ANUNCIO = %s ORDER BY [ID] DESC"            
             cursor.execute(sql,id)
-            return cursor.fetchone() #<--- Lista con los portales activos.
+            return cursor.fetchall() #<--- Lista con los portales activos.
     #---
     except _mssql.MssqlDatabaseException as e:
         print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
@@ -197,39 +199,123 @@ def get_one_field_data(data, index):
     #---
     return temp_resul #<--- Devuelve una lista con todos los datos de un campo en especifico.
 #---
+#--- Suma Meses a una Fecha
+def add_days(sourcedate,days):
+    #---
+    modified_date = sourcedate + timedelta(days=days)
+    #---
+    return modified_date #<--- Devuelve una fecha.
+#---
+#--- Resta de meses
+def monthdelta(d1, d2):
+    delta = 0
+    while True:
+        mdays = monthrange(d1.year, d1.month)[1]
+        d1 += timedelta(days=mdays)
+        if d1 <= d2:
+            delta += 1
+        else:
+            break
+    return delta  #<--- Devuelve la la diferencia entre dos meses.
+#---
+print('today: ',today)
+last_date = add_days(today,60)
+print('last_date: ',last_date)
+print('month: ', last_date.month)
+print('day: ', last_date.day)
 #reserv_day = get_reservation_dates('2017-09-15')
 #print(reserv_day)
+def insert_price(t_min,t_max,t_prom,propiedad,date):
+    #---
+    try:
+        #---
+        with connection.cursor() as cursor:
+            #--- Consulta especifica
+            sql = "INSERT INTO SCR_CALENDARIO_ANALISIS (ID_ANUNCIO,DIA,MES,AÑO,CT_PRECIO_MEDIO,CT_PRECIO_MIN,CT_PRECIO_MAX) VALUES (%s,%s,%s,%s,%s,%s,%s)"
+            cursor.execute(sql, (propiedad, date.day, date.month, date.year, t_prom, t_min, t_max))
 
-for prop in PROPIEDADES:
-    last_calc = get_last_calc(prop[1])
-    if (last_calc == None):
-        print("Noooooo")
+            #---
+            print('Correcto #5 -> Registro Correcto del Log.')
+        connection.commit()
+    #---
+    except _mssql.MssqlDatabaseException as e:
+        print('Error #5 -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
 
-    cal_data = get_calendar(prop[1])
-    if (cal_data == None):
-        print("nOP")
-    else:
-        print("yes",cal_data)
+def update_price(reg_id,t_min,t_max,t_prom,propiedad,date):
+    #---
+    try:
+        #---
+        with connection.cursor() as cursor:
+            #--- Consulta especifica
+            sql = "UPDATE SCR_CALENDARIO_ANALISIS SET CT_PRECIO_MEDIO = %s, CT_PRECIO_MIN = %s, CT_PRECIO_MAX = %s WHERE ID = %s AND ID_ANUNCIO = %s"
+            cursor.execute(sql, (t_prom, t_min, t_max, reg_id, propiedad))
 
-    id_consult = 0
-    for consult in CONSULTA:
-        if (consult[6] == prop[8]) and (consult[2] == prop[2]):
-            id_consult = consult[0]
-    print(id_consult)
+            #--- 
+            print('Correcto #5 -> Registro Correcto del Log.')
+        connection.commit()
+    #---
+    except _mssql.MssqlDatabaseException as e:
+        print('Error #5 -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
+#---
 
-    PORT_DETAIL = []
-    PORT_DETAIL = get_last_regis(prop[2])
-    begin_date =  today + datetime.timedelta(days=int(PORT_DETAIL[13]))
-    print(begin_date)
+for portal in SETTING:
+    #--
+    iteration = 0
+    #--
+    while (iteration <= portal[4]):
+        #---
+        calc_date = add_days(today,iteration)
+        print('iteration date: ',calc_date)
+        print(iteration)
+        #---        
+        for prop in PROPIEDADES:
+            last_calc = get_last_calc(prop[1])
+            last_id = None
+            if (last_calc != None):
+                for regis in last_calc:
+                    if (regis[2] == int(calc_date.day) and regis[3] == int(calc_date.month)):
+                        last_id = regis[0]
+                        break
+                        #---
+                #---
+            #----
+            id_consult = 0
+            for consult in CONSULTA:
+                if (consult[6] == prop[8]) and (consult[2] == prop[2]):
+                    id_consult = consult[0]
+            print(id_consult)
 
-    data_Extra = get_extract_dates("2017-09-17",prop[2],id_consult,"")
-    print("data: ",len(data_Extra))
+            PORT_DETAIL = []
+            PORT_DETAIL = get_last_regis(prop[2])
+            begin_date =  today + datetime.timedelta(days=int(PORT_DETAIL[13]))
+            print(begin_date)
 
-    data = get_one_field_data(data_Extra,7)
-    PRECIO_MEDIA = round(stats.mean(data),2)
-    print("Precio :",PRECIO_MEDIA)    
-    min_price = min(i for i in data if i > 39)
-    print("Min Price",min_price)
-    print("Max Price",max(data))
+            data_Extra = get_extract_dates(calc_date.strftime('%Y-%m-%d'),prop[2],id_consult,"")
+            print("data: ",len(data_Extra))
+
+            data = get_one_field_data(data_Extra,7)
+            PRECIO_MEDIA = round(stats.mean(data),2)
+            print("Precio :",PRECIO_MEDIA)    
+            min_price = min(i for i in data if i > 39)
+            max_price = max(data)
+            print("Min Price",min_price)
+            print("Max Price",max_price)
+            #--
+            if (last_id == None):
+                print("No hay datos registrados con anterioridad para esta propiedad")
+                insert_price(min_price,max_price,PRECIO_MEDIA,prop[1],calc_date)
+            #---
+            else:
+                print('Se actualizara el registro anterior')
+                update_price(last_id,min_price,max_price,PRECIO_MEDIA,prop[1],calc_date)
+            #---
+
+            
+        #---
+        iteration += 1
+
+
+
+
 
 
