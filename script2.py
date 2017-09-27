@@ -12,6 +12,7 @@ import pymssql
 import _mssql
 from decimal import *
 import statistics as stats
+import requests
 #------------- Finalizan Imports. -------------#
 
 #------------- Inicia Declaración de Variables Globales. -------------#
@@ -28,29 +29,12 @@ connection = pymssql.connect(server='66.232.22.196',
 #------------- Finaliza Configuración de BD. -------------#
 
 #------------- Inicia Consulta a BD para Obtener Datos Almacenados. -------------#
-try:
-    #---
-    with connection.cursor() as cursor:
-        #--- Extraccion de los datos de los portales a analizar de SCR_PORTALES
-        sql = "SELECT ID_PORTAL, NOMBRE, URL, DIAS_VERIFICACION FROM SCR_PORTALES WHERE ESTADIST_CALC = 1"
-        cursor.execute(sql)
-        SETTING = cursor.fetchall() #<--- Lista con los portales activos.
-        #---
-        #print(PORTAL)
-        print('Correcto -> Extracción de los datos del "portal" a usar.')
-#---
-except _mssql.MssqlDatabaseException as e:
-    print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
-#---
+xml = """xml=<?xml version="1.0" encoding="UTF-8"?>
+<GetProperties>
+    <ApiKey>9fa8f6d8d290a249137f131f8f0fb4c5</ApiKey>
+</GetProperties>"""#%(AddressVerified,AmountPaid)
 
-#------------- Inicio de las funciones Generales -------------#
-#---
+print(xml)
 
-#---
-#------------- Fin de las funciones Generales -------------#
-
-#------------- Inicio de declaración de variables -------------#
-#---
-
-#---
-#------------- Fin de declaración de variables -------------#
+headers = {'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8'} # set what your server accepts
+print(requests.post('https://www.bbliverate.com/api/live/callApi.php?method=GetProperties', data=xml, headers=headers).text)
