@@ -65,6 +65,30 @@ except _mssql.MssqlDatabaseException as e:
 print('---------')
 print(SETTING)
 print('---------')
+#--- Función para modificar el estado de la consulta.
+def change_State(state):
+    #---
+    td = (datetime.datetime.now()) #<--- Fecha del dia de hoy.
+    #---
+    try:
+    #---
+        with connection.cursor() as cursor:
+        #---
+            sql = "UPDATE SCR_ESTADO SET ESTADO = %s, FECHA = %s WHERE ID_PORTAL = %s"
+            cursor.execute(sql, (state,td,PORTAL[0]))
+        connection.commit()
+        print("------ Se ha realizado el cambio de estado de la consulta.")
+    #---
+    except _mssql.MssqlDatabaseException as e:
+    #---
+        print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
+    #---
+    if (state == True):
+        return "El Script se ejecuto correctamente. Se Ha modificado el estado de ejecución del script."
+    else:
+        return "El Script no se termino de ejecutar. Se Ha modificado el estado de ejecución del script."
+#---
+print(change_State(False)) #--- Se cambia el estado de la pagina a Falso.
 #---
 try:
     #---
@@ -438,7 +462,9 @@ for portal in SETTING:
             
         #---
         iteration += 1
+        print(change_State(True))
 
+print(change_State(True))
 
 
 
