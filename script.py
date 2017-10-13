@@ -52,7 +52,7 @@ try:
     #---
     with connection.cursor() as cursor:
         #--- Extraccion de los datos de los portales a analizar de SCR_PORTALES
-        sql = "SELECT ID_PORTAL, NOMBRE, URL, DIAS_VERIFICACION, MAX_DAYS, BEGIN_DAY, PRICE_MIN, PRICE_MAX, NEAR_DAYS FROM SCR_PORTALES WHERE CALC_PRICE = 1"        
+        sql = "SELECT ID_PORTAL, NOMBRE, URL, DIAS_VERIFICACION, MAX_DAYS, BEGIN_DAY, PRICE_MIN, PRICE_MAX, NEAR_DAYS, INCREMENTO_1, RESERVAS_MAX_1, INCREMENTO_2, RESERVAS_MAX_2 FROM SCR_PORTALES WHERE CALC_PRICE = 1"        
         cursor.execute(sql)
         SETTING = cursor.fetchall() #<--- Lista con los portales activos.
         #---
@@ -70,7 +70,7 @@ try:
     #---
     with connection.cursor() as cursor:
         #--- Extraccion de los datos de los portales a analizar de SCR_PORTALES
-        sql = "SELECT p.ID_PROPIEDAD,pa.ID_ANUNCIO,a.ID_PORTAL,p.[ID_PROPIETARIO],p.[NOMBRE_PROPIEDAD],p.[GRUPO_ID],p.[IDHAB],h.[NOMBRE],h.[numpersonas],a.TITULO,p.[DORMITORIOS],p.[BAÑOS],p.[TELEFONO],p.[MOVIL],p.[DIRECCION],p.[codigo_postal],p.[poblacion],p.[PROVINCIA],p.[LATITUD],p.[LONGITUD],p.[PAIS] FROM [foxclea_tareas].[foxclea_tareas].[AV_PROPIEDADES] p join av_habitacion h on p.[IDHAB] = h.[IDHAB] JOIN SCR_PROPIEDADES_ANUNCIOS pa on p.ID_PROPIEDAD = pa.ID_PROPIEDAD JOIN SCR_ANUNCIOS a on pa.ID_ANUNCIO = a.ID_ANUNCIO;"        
+        sql = "SELECT p.ID_PROPIEDAD,pa.ID_ANUNCIO,a.ID_PORTAL,p.[ID_PROPIETARIO],p.[NOMBRE_PROPIEDAD],p.[GRUPO_ID],p.[IDHAB],h.[NOMBRE],h.[numpersonas],pa.[OCTORATE_PROPERTY_ID],pa.[OCTORATE_ID],pa.[ALLOW_MOD],a.TITULO,p.[DORMITORIOS],p.[BAÑOS],p.[TELEFONO],p.[MOVIL],p.[DIRECCION],p.[codigo_postal],p.[poblacion],p.[PROVINCIA],p.[LATITUD],p.[LONGITUD],p.[PAIS] FROM [foxclea_tareas].[foxclea_tareas].[AV_PROPIEDADES] p join av_habitacion h on p.[IDHAB] = h.[IDHAB] JOIN SCR_PROPIEDADES_ANUNCIOS pa on p.ID_PROPIEDAD = pa.ID_PROPIEDAD JOIN SCR_ANUNCIOS a on pa.ID_ANUNCIO = a.ID_ANUNCIO;"        
         cursor.execute(sql)
         PROPIEDADES = cursor.fetchall() #<--- Lista con los portales activos.
         #---
@@ -81,6 +81,14 @@ except _mssql.MssqlDatabaseException as e:
     print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
 #---
 #print(PROPIEDADES)
+def count_property(id_portal,group_id):
+	total = 0
+	for propiedad in PROPIEDADES:
+		if (propiedad[2] == id_portal and propiedad[5] == group_id):
+			total += 1
+	#---		
+	return total
+
 #---
 def get_direct_comp(id_anuncio):
     try:
@@ -117,11 +125,12 @@ except _mssql.MssqlDatabaseException as e:
 #---
 def get_extract_dates(day,portal,consulta,tipo,max_price, min_price):
 #---
+
     try:
         #---
         with connection.cursor() as cursor:
             #--- Extraccion de los datos de los portales a analizar de SCR_PORTALES
-            sql = "SELECT [ID_ANUNCIANTE],[ID_COMPETENCIA],[ID_ANUNCIO],[FECHAI],[FECHAF],[ORDEN],[ID_PORTAL],[PRECIO],[ID_CONSULTA],[TIPO],[N_CAMA],[RATIO],[FECHA_INGRESO] FROM [foxclea_tareas].[foxclea_tareas].[SCR_ANUNCIANTES] WHERE foxclea_tareas.solo_fecha(%s) between [FECHAI] and [FECHAF]-1 AND ID_PORTAL = %s AND ID_CONSULTA = %s  AND PRECIO < %s ORDER BY [FECHAI] ASC"
+            sql = "SELECT  max([ID_ANUNCIANTE]) as ID_ANUNCIANTE, max([ID_COMPETENCIA]) as ID_COMPETENCIA, max([ID_ANUNCIO]) as ID_ANUNCIO, max([FECHAI]) as FECHAI, max([FECHAF]) as FECHAF, max([ORDEN]) as ORDEN, max([ID_PORTAL]) as ID_PORTAL, max([PRECIO]) as PRECIO, max([ID_CONSULTA]) as ID_CONSULTA, max([TIPO]) as TIPO, max([N_CAMA]) as N_CAMA, max([RATIO]) as RATIO, max([FECHA_INGRESO]) as FECHA_INGRESO FROM [foxclea_tareas].[foxclea_tareas].[SCR_ANUNCIANTES] WHERE foxclea_tareas.solo_fecha(%s) between [FECHAI] and [FECHAF]-1 AND ID_PORTAL = %s AND ID_CONSULTA = %s  AND PRECIO < %s GROUP BY ID_COMPETENCIA ORDER BY max(FECHA_INGRESO) DESC;"
             cursor.execute(sql,(day,portal,consulta,max_price))
             return cursor.fetchall() #<--- Lista con los portales activos.
             #---
@@ -133,13 +142,13 @@ def get_extract_dates(day,portal,consulta,tipo,max_price, min_price):
 #---
 #print(CONSULTA)
 #---
-def get_reservation_dates(day):
+def get_reservation_dates(day,group_id):
     try:
     #---
         with connection.cursor() as cursor:
-            sql = "SELECT R.ID_RESERVA, R.GRUPO_ID,R.ID_HAB,R.FECHA_RESERVA, R.FECHA_ENTRADA, R.FECHA_SALIDA, R.NO_PERSONAS, R.NO_NIÑOS, R.PRECIO, R.PROCEDENCIA,  R.ESTADO, R.PRECIOextra, R.COMISION, R.GASTOENERGIABAS, R.GASTOLIMREAL , S.NOMBRE,P.NOMBRE_PROPIEDAD,P.ID_PROPIEDAD,R.ID_PROPIEDAD FROM AV_RESERVAS R LEFT JOIN BMSUBCON S ON NUMERO = R.AGENCIA LEFT JOIN  AV_PROPIEDADES P on  P.ID_PROPIEDAD = R.ID_PROPIEDAD WHERE foxclea_tareas.solo_fecha('"+ day +"') between R.fecha_entrada and R.fecha_salida-1 and R.ESTADO<>'CANCELADA' ORDER BY R.FECHA_ENTRADA ASC;"
-            print(sql)
-            cursor.execute(sql)
+            sql = "SELECT R.ID_RESERVA, R.GRUPO_ID,R.ID_HAB,R.FECHA_RESERVA, R.FECHA_ENTRADA, R.FECHA_SALIDA, R.NO_PERSONAS, R.NO_NIÑOS, R.PRECIO, R.PROCEDENCIA,  R.ESTADO, R.PRECIOextra, R.COMISION, R.GASTOENERGIABAS, R.GASTOLIMREAL , S.NOMBRE,P.NOMBRE_PROPIEDAD,P.ID_PROPIEDAD,R.ID_PROPIEDAD FROM AV_RESERVAS R LEFT JOIN BMSUBCON S ON NUMERO = R.AGENCIA LEFT JOIN  AV_PROPIEDADES P on  P.ID_PROPIEDAD = R.ID_PROPIEDAD WHERE foxclea_tareas.solo_fecha(%s) between R.fecha_entrada and R.fecha_salida-1 and R.ESTADO<>'CANCELADA' and R.GRUPO_ID = %s ORDER BY R.FECHA_ENTRADA ASC;"
+            #print(sql)
+            cursor.execute(sql,(day,group_id))
             return cursor.fetchall() #<--- Lista con los portales activos.
     #---
     except _mssql.MssqlDatabaseException as e:
@@ -251,14 +260,14 @@ print('today: ',today)
 
 #reserv_day = get_reservation_dates('2017-09-15')
 #print(reserv_day)
-def insert_price(t_min,t_max,t_prom,propiedad,date,cd_min,cd_max,cd_prom,cd_total,cd_disp):
+def insert_price(t_min,t_max,t_prom,propiedad,date,cd_min,cd_max,cd_prom,cd_total,cd_disp,price,cant_reservas):
     #---
     try:
         #---
         with connection.cursor() as cursor:
             #--- Consulta especifica
-            sql = "INSERT INTO SCR_CALENDARIO_ANALISIS (ID_ANUNCIO,DIA,MES,AÑO,CD_PRECIO_MEDIO,CD_PRECIO_MIN,CD_PRECIO_MAX,DISPONIBLES,TOTAL,CT_PRECIO_MEDIO,CT_PRECIO_MIN,CT_PRECIO_MAX) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
-            cursor.execute(sql, (propiedad, date.day, date.month, date.year, cd_prom, cd_min, cd_max, cd_disp, cd_total, t_prom, t_min, t_max))
+            sql = "INSERT INTO SCR_CALENDARIO_ANALISIS (ID_ANUNCIO,DIA,MES,AÑO,CD_PRECIO_MEDIO,CD_PRECIO_MIN,CD_PRECIO_MAX,DISPONIBLES,TOTAL,CT_PRECIO_MEDIO,CT_PRECIO_MIN,CT_PRECIO_MAX,PRECIO,RESERVAS) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+            cursor.execute(sql, (propiedad, date.day, date.month, date.year, cd_prom, cd_min, cd_max, cd_disp, cd_total, t_prom, t_min, t_max, price,cant_reservas))
 
             #---
             print('Correcto #5 -> Registro Correcto del Log.')
@@ -267,14 +276,14 @@ def insert_price(t_min,t_max,t_prom,propiedad,date,cd_min,cd_max,cd_prom,cd_tota
     except _mssql.MssqlDatabaseException as e:
         print('Error #5 -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
 
-def update_price(reg_id,t_min,t_max,t_prom,propiedad,date,cd_min,cd_max,cd_prom,cd_total,cd_disp):
+def update_price(reg_id,t_min,t_max,t_prom,propiedad,date,cd_min,cd_max,cd_prom,cd_total,cd_disp,price,cant_reservas):
     #---
     try:
         #---
         with connection.cursor() as cursor:
             #--- Consulta especifica
-            sql = "UPDATE SCR_CALENDARIO_ANALISIS SET CD_PRECIO_MEDIO = %s, CD_PRECIO_MIN = %s, CD_PRECIO_MAX = %s, DISPONIBLES = %s, TOTAL = %s, CT_PRECIO_MEDIO = %s, CT_PRECIO_MIN = %s, CT_PRECIO_MAX = %s WHERE ID = %s AND ID_ANUNCIO = %s"
-            cursor.execute(sql, (cd_prom, cd_min, cd_max, cd_disp, cd_total, t_prom, t_min, t_max, reg_id, propiedad))
+            sql = "UPDATE SCR_CALENDARIO_ANALISIS SET CD_PRECIO_MEDIO = %s, CD_PRECIO_MIN = %s, CD_PRECIO_MAX = %s, DISPONIBLES = %s, TOTAL = %s, CT_PRECIO_MEDIO = %s, CT_PRECIO_MIN = %s, CT_PRECIO_MAX = %s, PRECIO = %s, RESERVAS = %s WHERE ID = %s AND ID_ANUNCIO = %s"
+            cursor.execute(sql, (cd_prom, cd_min, cd_max, cd_disp, cd_total, t_prom, t_min, t_max, price, cant_reservas, reg_id, propiedad))
 
             #--- 
             print('Correcto #5 -> Registro Correcto del Log.')
@@ -284,22 +293,38 @@ def update_price(reg_id,t_min,t_max,t_prom,propiedad,date,cd_min,cd_max,cd_prom,
         print('Error #5 -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
 #---
 
+
 for portal in SETTING:
     #--
     iteration = 0
     today = add_days(today,portal[5])
     print('Begin Date: ',today)
+    short_date =  add_days(today,int(portal[8]))
+    print('Short date: ', short_date)
     #--
     while (iteration <= portal[4]):
         #---
-        calc_date = add_days(today,iteration)
+        calc_date = add_days(today,iteration)        
         print('iteration date: ',calc_date)
         print(iteration)
+
         #---        
         for prop in PROPIEDADES:
             #---
             last_id = get_last_calc(prop[1], int(calc_date.day),int(calc_date.month),int(calc_date.year))
             b_list = get_black_list(prop[1], int(calc_date.day),int(calc_date.month),int(calc_date.year))
+            reservas = get_reservation_dates(calc_date.strftime('%Y-%m-%d'),prop[5])
+            cant_reservas = 0
+            cant_reservas = len(reservas)            
+            total_reserv = count_property(prop[2],prop[5])
+            perc_reservas = 0
+            #---
+            if(cant_reservas != 0):
+                perc_reservas = (cant_reservas/total_reserv)
+            #---
+            print('Total reservas', total_reserv, ' --- grupo_id = ', prop[5])
+            print('Cantidad reservas', cant_reservas)
+            print('Porcentage reservas', perc_reservas)
             #---
             if (b_list == None):
                 #---
@@ -307,9 +332,11 @@ for portal in SETTING:
                 print('las id: ',last_id)
                 #----
                 id_consult = 0
+                consulta_cap = 0
                 for consult in CONSULTA:
                     if (consult[6] == prop[8]) and (consult[2] == prop[2]):
                         id_consult = consult[0]
+                        consulta_cap = consult[6]
                 print(id_consult)
 
                 
@@ -330,6 +357,13 @@ for portal in SETTING:
                             CD.append(anuncios)
                 #---
                 print('Competencia Directa Disponible: ', len(CD))
+                percentage = 0
+                allow = False
+                if (len(CD) > 0 and len(COMPETENCIA_DIRECTA) > 0):
+                    percentage = (len(CD) / len(COMPETENCIA_DIRECTA)) * 100
+                    allow = True
+                #----
+                print('Porcentage disponible: ',percentage) 
                 #print(CD)
                 if (len(CD) > 0):
                     CD_data = get_one_field_data(CD, 7)
@@ -354,6 +388,24 @@ for portal in SETTING:
                     PRECIO_MEDIA = 0          
                     min_price = 0
                     max_price = 0
+                #----
+                price = 0                
+                if (percentage >= 60 and len(CD) > 0):
+                    price = CD_precio
+                elif (allow == True, percentage <= 35 and len(CD) > 0 and len(data_Extra) > 0 and consulta_cap > 3):
+                    price = ((PRECIO_MEDIA + max_price) / 2)
+                else:
+                    price = PRECIO_MEDIA
+
+                if (perc_reservas >= portal[10]):
+                	price += portal[9]
+                if (perc_reservas >= portal[12]):
+                	price += portal[11]
+
+                #-----
+                if (calc_date <= short_date):
+                    price = PRECIO_MEDIA
+                    print('La Fecha esta proxima por lo que se usara el precio total = ', price)
                 #---
                 print("CT Precio :", PRECIO_MEDIA)    
                 print("CT Min Price", min_price)
@@ -361,11 +413,11 @@ for portal in SETTING:
                 #--
                 if (last_id == None):
                     print("No hay datos registrados con anterioridad para esta propiedad")
-                    insert_price(min_price,max_price,PRECIO_MEDIA,prop[1],calc_date,CD_min_price,CD_max_price,CD_precio,len(COMPETENCIA_DIRECTA),len(CD))
+                    insert_price(min_price,max_price,PRECIO_MEDIA,prop[1],calc_date,CD_min_price,CD_max_price,CD_precio,len(COMPETENCIA_DIRECTA),len(CD), price,cant_reservas)
                 #---def insert_price(cd_min,cd_max,cd_prom,cd_total,cd_disp):
                 else:
                     print('Se actualizara el registro anterior')
-                    update_price(last_id,min_price,max_price,PRECIO_MEDIA,prop[1],calc_date,CD_min_price,CD_max_price,CD_precio,len(COMPETENCIA_DIRECTA),len(CD))
+                    update_price(last_id,min_price,max_price,PRECIO_MEDIA,prop[1],calc_date,CD_min_price,CD_max_price,CD_precio,len(COMPETENCIA_DIRECTA),len(CD), price,cant_reservas)
                 #---
             elif(b_list == 0):
                 #---
@@ -376,13 +428,13 @@ for portal in SETTING:
                 #--
                 if (last_id == None):
                     print("No hay datos registrados con anterioridad para esta propiedad")
-                    insert_price(b_list,b_list,b_list,prop[1],calc_date,b_list,b_list,b_list,0,0)
+                    insert_price(b_list,b_list,b_list,prop[1],calc_date,b_list,b_list,b_list,0,0,b_list,cant_reservas)
                 #---def insert_price(cd_min,cd_max,cd_prom,cd_total,cd_disp):
                 else:
                     print('Se actualizara el registro anterior')
-                    update_price(last_id,b_list,b_list,b_list,prop[1],calc_date,b_list,b_list,b_list,0,0)
+                    update_price(last_id,b_list,b_list,b_list,prop[1],calc_date,b_list,b_list,b_list,0,0,b_list,cant_reservas)
 
-
+            print('---------------------------------')
             
         #---
         iteration += 1
