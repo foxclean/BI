@@ -78,19 +78,20 @@ except _mssql.MssqlDatabaseException as e:
     print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
 #---
 #---
-try:
-    #---
-    with connection.cursor() as cursor:
-        #--- Extraccion de los datos de los portales a analizar de SCR_PORTALES
-        sql = "SELECT p.ID_PROPIEDAD,pa.ID_ANUNCIO,a.ID_PORTAL,p.[ID_PROPIETARIO],p.[NOMBRE_PROPIEDAD],p.[GRUPO_ID],p.[IDHAB],h.[NOMBRE],h.[numpersonas],pa.[OCTORATE_PROPERTY_ID],pa.[OCTORATE_ID],pa.[ALLOW_MOD],a.TITULO,p.[DORMITORIOS],p.[BAÑOS],p.[TELEFONO],p.[MOVIL],p.[DIRECCION],p.[codigo_postal],p.[poblacion],p.[PROVINCIA],p.[LATITUD],p.[LONGITUD],p.[PAIS] FROM [foxclea_tareas].[foxclea_tareas].[AV_PROPIEDADES] p join av_habitacion h on p.[IDHAB] = h.[IDHAB] JOIN SCR_PROPIEDADES_ANUNCIOS pa on p.ID_PROPIEDAD = pa.ID_PROPIEDAD JOIN SCR_ANUNCIOS a on pa.ID_ANUNCIO = a.ID_ANUNCIO;"        
-        cursor.execute(sql)
-        PROPIEDADES = cursor.fetchall() #<--- Lista con los portales activos.
+def get_properties(id_portal):
+    try:
         #---
-        #print(PORTAL)
-        print('Correcto -> Extracción de los datos del "portal" a usar.')
-#---
-except _mssql.MssqlDatabaseException as e:
-    print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
+        with connection.cursor() as cursor:
+            #--- Extraccion de los datos de los portales a analizar de SCR_PORTALES
+            sql = "SELECT p.ID_PROPIEDAD,pa.ID_ANUNCIO,a.ID_PORTAL,p.[ID_PROPIETARIO],p.[NOMBRE_PROPIEDAD],p.[GRUPO_ID],p.[IDHAB],h.[NOMBRE],h.[numpersonas],pa.[OCTORATE_PROPERTY_ID],pa.[OCTORATE_ID],pa.[ALLOW_MOD],a.TITULO,p.[DORMITORIOS],p.[BAÑOS],p.[TELEFONO],p.[MOVIL],p.[DIRECCION],p.[codigo_postal],p.[poblacion],p.[PROVINCIA],p.[LATITUD],p.[LONGITUD],p.[PAIS] FROM [foxclea_tareas].[foxclea_tareas].[AV_PROPIEDADES] p JOIN av_habitacion h ON p.[IDHAB] = h.[IDHAB] JOIN SCR_PROPIEDADES_ANUNCIOS pa ON p.ID_PROPIEDAD = pa.ID_PROPIEDAD JOIN SCR_ANUNCIOS a ON pa.ID_ANUNCIO = a.ID_ANUNCIO WHERE a.ID_PORTAL = %s;"        
+            cursor.execute(sql, (id_portal))
+            return  cursor.fetchall() #<--- Lista con los portales activos.
+            #---
+            #print(PORTAL)
+            print('Correcto -> Extracción de los datos del "portal" a usar.')
+    #---
+    except _mssql.MssqlDatabaseException as e:
+        print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
 #---
 #print(PROPIEDADES)
 #--- Suma Meses a una Fecha
@@ -195,6 +196,7 @@ for portal in SETTING:
     iteration = 0
     today = add_days(today, portal[5])
     short_date =  add_days(today, int(portal[8]))
+    PROPIEDADES = get_properties(portal[0])
     #---
     print('Begin Date: ', today)    
     print('Short date: ', short_date)
