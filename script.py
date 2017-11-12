@@ -35,11 +35,11 @@ connection = pymssql.connect(server='66.232.22.196',
 
 #------------- Inicio de declaración de variables -------------#
 #---
-SETTING = []
-PROPIEDADES = []
-CONSULTA = []
-COMPETENCIA_DIRECTA = []
-today = (datetime.datetime.now()).date() #<--- Fecha de hoy.
+SETTING = [] #<--- Arreglo dondo se almacenan las configuraciones por portal.
+PROPIEDADES = [] #<--- Variable donde se alamacenaran las propiedades.
+CONSULTA = [] #<--- Arreglo donde se almacenaran todas las consultas por portal.
+COMPETENCIA_DIRECTA = [] #<--- Arreglo donde se guardaran la competencia directa.
+today = (datetime.datetime.now()).date() #<--- Variable donde se almacena la fecha de hoy.
 #---
 #------------- Fin de declaración de variables -------------#
 
@@ -48,6 +48,7 @@ today = (datetime.datetime.now()).date() #<--- Fecha de hoy.
 #-- Funcion para listar la competencia directa:
 #-- 
 #------------- Inicia Consulta a BD para Obtener Datos Almacenados. -------------#
+#---
 try:
     #---
     with connection.cursor() as cursor:
@@ -73,7 +74,7 @@ def change_State(state):
     try:
     #---
         with connection.cursor() as cursor:
-        #---
+        #--- CONSULTA PARA CAMBIAR EL ESTADO DEL SCRIPT
             sql = "UPDATE SCR_ESTADO SET ESTADO = %s, FECHA = %s WHERE ID_PORTAL = %s"
             cursor.execute(sql, (state,td,7))
         connection.commit()
@@ -90,96 +91,95 @@ def change_State(state):
 #---
 print(change_State(False)) #--- Se cambia el estado de la pagina a Falso.
 #---
-try:
-    #---
-    with connection.cursor() as cursor:
-        #--- Extraccion de los datos de los portales a analizar de SCR_PORTALES
-        sql = "SELECT p.ID_PROPIEDAD,pa.ID_ANUNCIO,a.ID_PORTAL,p.[ID_PROPIETARIO],p.[NOMBRE_PROPIEDAD],p.[GRUPO_ID],p.[IDHAB],h.[NOMBRE],h.[numpersonas],pa.[OCTORATE_PROPERTY_ID],pa.[OCTORATE_ID],pa.[ALLOW_MOD],a.TITULO,p.[DORMITORIOS],p.[BAÑOS],p.[TELEFONO],p.[MOVIL],p.[DIRECCION],p.[codigo_postal],p.[poblacion],p.[PROVINCIA],p.[LATITUD],p.[LONGITUD],p.[PAIS] FROM [foxclea_tareas].[foxclea_tareas].[AV_PROPIEDADES] p join av_habitacion h on p.[IDHAB] = h.[IDHAB] JOIN SCR_PROPIEDADES_ANUNCIOS pa on p.ID_PROPIEDAD = pa.ID_PROPIEDAD JOIN SCR_ANUNCIOS a on pa.ID_ANUNCIO = a.ID_ANUNCIO;"        
-        cursor.execute(sql)
-        PROPIEDADES = cursor.fetchall() #<--- Lista con los portales activos.
+#--- FUNCIÓN PARA OBTENER LAS PROPIEDADES POR PORTAL QUE SE ANALIZARAN.
+def get_properties(id_portal):
+    try:
         #---
-        #print(PORTAL)
-        print('Correcto -> Extracción de los datos del "portal" a usar.')
+        with connection.cursor() as cursor:
+            #--- Extraccion de los datos de las PROPIEDADES_ANUNCIOS
+            sql = "SELECT p.ID_PROPIEDAD,pa.ID_ANUNCIO,a.ID_PORTAL,p.[ID_PROPIETARIO],p.[NOMBRE_PROPIEDAD],p.[GRUPO_ID],p.[IDHAB],h.[NOMBRE],h.[numpersonas],pa.[OCTORATE_PROPERTY_ID],pa.[OCTORATE_ID],pa.[ALLOW_MOD],a.TITULO,p.[DORMITORIOS],p.[BAÑOS],p.[TELEFONO],p.[MOVIL],p.[DIRECCION],p.[codigo_postal],p.[poblacion],p.[PROVINCIA],p.[LATITUD],p.[LONGITUD],p.[PAIS] FROM [foxclea_tareas].[foxclea_tareas].[AV_PROPIEDADES] p JOIN av_habitacion h ON p.[IDHAB] = h.[IDHAB] JOIN SCR_PROPIEDADES_ANUNCIOS pa ON p.ID_PROPIEDAD = pa.ID_PROPIEDAD JOIN SCR_ANUNCIOS a ON pa.ID_ANUNCIO = a.ID_ANUNCIO WHERE a.ID_PORTAL = %s;"
+            cursor.execute(sql, (id_portal))            
+            #---
+            print('Correcto -> Extracción de las PROPIEDADES_ANUNCIOS')
+            return cursor.fetchall()  # <--- Lista con las propiedades.
+    #---
+    except _mssql.MssqlDatabaseException as e:
+        print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
 #---
-except _mssql.MssqlDatabaseException as e:
-    print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
-#---
-#print(PROPIEDADES)
-def count_property(id_portal,group_id):
-	total = 0
-	for propiedad in PROPIEDADES:
+#--- FUNCIÓN PARA CONTAR LA CANTIDAD DE PROPIEDADES POR GRUPO (GROUP_ID)
+def count_property(id_portal, group_id, PROPERS):
+    #---
+	total = 0 #<--- Se inicializa en 0 para que siempre devuelva algo.
+	for propiedad in PROPERS:
 		if (propiedad[2] == id_portal and propiedad[5] == group_id):
 			total += 1
 	#---		
 	return total
-
 #---
+#--- FUNCION PARA OBTENER LA COMPETENCIA DIRECTA DE UN ANUNCIO.
 def get_direct_comp(id_anuncio):
     try:
         #---
         with connection.cursor() as cursor:
-            #--- Extraccion de los datos de los portales a analizar de SCR_PORTALES
+            #--- Extraccion de los datos de la COMPETENCIA_DIRECTA.
             sql = "SELECT ID_ANUNCIO, ID_COMPETENCIA, NIVEL_COMPETITIVO FROM SCR_COMPETENCIA_DIRECTA WHERE ID_ANUNCIO = %s;"        
-            cursor.execute(sql, id_anuncio)
-            return cursor.fetchall() #<--- Lista con los portales activos.
+            cursor.execute(sql, id_anuncio)            
             #---
-            #print(PORTAL)
-            print('Correcto -> Extracción de los datos del "portal" a usar.')
+            print('Correcto -> Extracción de los datos de la COMPETENCIA DIRECTA.')
+            return cursor.fetchall()  # <--- Lista de la competencia DIRECTA.
     #---
     except _mssql.MssqlDatabaseException as e:
         print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
 #---
-#print(COMPETENCIA_DIRECTA)
-#---
-try:
-    #---
-    with connection.cursor() as cursor:
-        #--- Extraccion de los datos de los portales a analizar de SCR_PORTALES
-        sql = "SELECT [ID_CONSULTA],[ID_ANUNCIO],[ID_PORTAL],[PAIS],[CIUDAD],[ZONA],[ADULTOS],[NIÑOS],[BEBES],[ESTADO] FROM [foxclea_tareas].[SCR_CONSULTAS]"
-        cursor.execute(sql)
-        CONSULTA = cursor.fetchall() #<--- Lista con los portales activos.
-        #---
-        #print(PORTAL)
-        print('Correcto -> Extracción de los datos del "portal" a usar.')
-#---
-except _mssql.MssqlDatabaseException as e:
-    print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
-#---
-#print(CONSULTA)
-#---
-def get_extract_dates(day,portal,consulta,tipo,max_price, min_price):
-#---
-
+#--- EXTRACCIÓN DE LAS CONSULTAS
+def get_consultas(id_portal):
     try:
         #---
         with connection.cursor() as cursor:
-            #--- Extraccion de los datos de los portales a analizar de SCR_PORTALES
-            sql = "SELECT  max([ID_ANUNCIANTE]) as ID_ANUNCIANTE, max([ID_COMPETENCIA]) as ID_COMPETENCIA, max([ID_ANUNCIO]) as ID_ANUNCIO, max([FECHAI]) as FECHAI, max([FECHAF]) as FECHAF, max([ORDEN]) as ORDEN, max([ID_PORTAL]) as ID_PORTAL, max([PRECIO]) as PRECIO, max([ID_CONSULTA]) as ID_CONSULTA, max([TIPO]) as TIPO, max([N_CAMA]) as N_CAMA, max([RATIO]) as RATIO, max([FECHA_INGRESO]) as FECHA_INGRESO FROM [foxclea_tareas].[foxclea_tareas].[SCR_ANUNCIANTES] WHERE foxclea_tareas.solo_fecha(%s) between [FECHAI] and [FECHAF]-1 AND ID_PORTAL = %s AND ID_CONSULTA = %s  AND PRECIO < %s GROUP BY ID_COMPETENCIA ORDER BY max(FECHA_INGRESO) DESC;"
-            cursor.execute(sql,(day,portal,consulta,max_price))
-            return cursor.fetchall() #<--- Lista con los portales activos.
+            #--- Extraccion de los datos de las CONSULTAS POR PORTAL
+            sql = "SELECT [ID_CONSULTA],[ID_ANUNCIO],[ID_PORTAL],[PAIS],[CIUDAD],[ZONA],[ADULTOS],[NIÑOS],[BEBES],[ESTADO] FROM [foxclea_tareas].[SCR_CONSULTAS] WHERE ID_PORTAL = %s;"
+            cursor.execute(sql, id_portal)
             #---
             #print(PORTAL)
-            print('Correcto -> Extracción de los datos del "portal" a usar.')
+            print('Correcto -> Extracción de los datos de las CONSULTAS por portal.')
+            return cursor.fetchall()  # <--- Lista de las CONSULTAS por portal.
+    #---
+    except _mssql.MssqlDatabaseException as e:
+        print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
+#---
+#--- FUNCIÓN PARA DEVOLVER LOS ANUNCIOS EXTRAIDOS EN DETERMINADAS FECHAS.
+def get_extract_dates(day,portal,consulta,tipo,max_price, min_price):
+#---
+    try:
+        #---
+        with connection.cursor() as cursor:
+            #--- Extraccion de los datos de los ANUNCIOS extraidos en ANUNCIANTES.
+            sql = "SELECT  max([ID_ANUNCIANTE]) as ID_ANUNCIANTE, max([ID_COMPETENCIA]) as ID_COMPETENCIA, max([ID_ANUNCIO]) as ID_ANUNCIO, max([FECHAI]) as FECHAI, max([FECHAF]) as FECHAF, max([ORDEN]) as ORDEN, max([ID_PORTAL]) as ID_PORTAL, max([PRECIO]) as PRECIO, max([ID_CONSULTA]) as ID_CONSULTA, max([TIPO]) as TIPO, max([N_CAMA]) as N_CAMA, max([RATIO]) as RATIO, max([FECHA_INGRESO]) as FECHA_INGRESO FROM [foxclea_tareas].[foxclea_tareas].[SCR_ANUNCIANTES] WHERE foxclea_tareas.solo_fecha(%s) between [FECHAI] and [FECHAF]-1 AND ID_PORTAL = %s AND ID_CONSULTA = %s  AND PRECIO < %s GROUP BY ID_COMPETENCIA ORDER BY max(FECHA_INGRESO) DESC;"
+            cursor.execute(sql,(day,portal,consulta,max_price))
+            #---
+            print('Correcto -> Extracción de los datos de ANUNCIOS extraidos')
+            return cursor.fetchall()  # <--- Lista con los anuncios extraidos
     #---
     except _mssql.MssqlDatabaseException as e:
         print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
 #---
 #print(CONSULTA)
-#---
+#--- FUNCIÓN PARA OBTENER LAS RESERVAS SOLICITADAS EN UN DÍA DETERMINADO.
 def get_reservation_dates(day,group_id):
     try:
     #---
         with connection.cursor() as cursor:
+            #--- Extraccion de los datos de las RESERVAS.
             sql = "SELECT R.ID_RESERVA, R.GRUPO_ID,R.ID_HAB,R.FECHA_RESERVA, R.FECHA_ENTRADA, R.FECHA_SALIDA, R.NO_PERSONAS, R.NO_NIÑOS, R.PRECIO, R.PROCEDENCIA,  R.ESTADO, R.PRECIOextra, R.COMISION, R.GASTOENERGIABAS, R.GASTOLIMREAL , S.NOMBRE,P.NOMBRE_PROPIEDAD,P.ID_PROPIEDAD,R.ID_PROPIEDAD FROM AV_RESERVAS R LEFT JOIN BMSUBCON S ON NUMERO = R.AGENCIA LEFT JOIN  AV_PROPIEDADES P on  P.ID_PROPIEDAD = R.ID_PROPIEDAD WHERE foxclea_tareas.solo_fecha(%s) between R.fecha_entrada and R.fecha_salida-1 and R.GRUPO_ID = %s or R.ESTADO = 'EN CURSO' or R.ESTADO = 'ACTIVA' or R.ESTADO = 'FINALIZADA' ORDER BY R.FECHA_ENTRADA ASC;"
-            #print(sql)
             cursor.execute(sql,(day,group_id))
-            return cursor.fetchall() #<--- Lista con los portales activos.
+            #---
+            print('Correcto -> Extracción de los datos de las RESERVAS')
+            return cursor.fetchall() #<--- Lista con las RESERVAS.
     #---
     except _mssql.MssqlDatabaseException as e:
         print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
 #---
-
-#---
+#--- FUNCIÓN PARA OBTENER EL "ID" DEL ULTIMO REGISTRO EN CALENDARIO_ANALISIS
 def get_last_calc(id, dia, mes, año):
     try:
     #---
@@ -187,6 +187,9 @@ def get_last_calc(id, dia, mes, año):
             sql = "SELECT ID FROM SCR_CALENDARIO_ANALISIS WHERE ID_ANUNCIO = %s AND DIA = %s AND MES = %s AND AÑO = %s"            
             cursor.execute(sql,(id, dia, mes, año))
             temp = cursor.fetchone() #<--- Lista con los portales activos.
+            #---
+            print('Correcto -> Extracción del ultimo registro de CALENDARIO ANALISIS')
+            #---
             if temp:
                 return temp[0]
             else:
@@ -195,6 +198,7 @@ def get_last_calc(id, dia, mes, año):
     except _mssql.MssqlDatabaseException as e:
         print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
 #---
+#--- FUNCION PARA OBTENER UN REGISTRO EN CALENDARIO ANALISIS POR EL "ID" --- NO SE USA.
 def get_calendar(id):
     try:
     #---
@@ -206,6 +210,7 @@ def get_calendar(id):
     except _mssql.MssqlDatabaseException as e:
         print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
 #---
+#--- OBTIENE EL ULTIMO REGISTRO POR PORTAL DE LOS DATOS ANALISADOS DE LAS RESERVAS -- NO SE USA.
 def get_last_regis(id_port):
     #---
     try:
@@ -218,16 +223,17 @@ def get_last_regis(id_port):
             last_result = cursor.fetchone()
             #---
             #print(PORTAL)
-            print('Correcto -> Extracción de los datos del "portal" a usar.')
+            print('Correcto -> Extracción de los datos de "PORTALES_DETALLES".')
     #---
     except _mssql.MssqlDatabaseException as e:
         print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
     #---   
     return last_result
+#---
 
-    #---
 #--- Se genera una lista con los datos de un campo especifico.
-def get_one_field_data(data, index):
+def get_one_field_data(data, index): #<--DATA es todo el arreglo ex: [[1,2,3,4],[1,2,3,4],[1,2,3,4]] y index es el indice que interesa de esos arreglos.
+    #--- si index fuera 1 (utilizando el ejemplo comentariado arriba), temp_result seria = [2,2]
     temp_resul = []
     for t_data in data:
         if (t_data[index] == None):
@@ -256,11 +262,12 @@ def monthdelta(d1, d2):
             break
     return delta  #<--- Devuelve la la diferencia entre dos meses.
 #---
+#--- FUNCION PARA EXTRAER VALORES PREDEFINIDOS POR EL USUARIO EN LA TABLA "SCR_CALENDAR_DEFAULT_LIST"
 def get_black_list(id_hab,dia,mes,año):
     #---
     try:
-        #---
-        last_result = [] #<--- Lista donde se almacena el ultimo resulta de SCR_PORTALES_DETALLES, del portal especificado.
+        #---        
+        last_result = []
         with connection.cursor() as cursor:
             #--- Consulta especifica
             sql = "SELECT PRECIO FROM SCR_CALENDAR_DEFAULT_LIST WHERE ID_ANUNCIO = %s AND DIA = %s AND MES = %s AND AÑO = %s"
@@ -279,11 +286,7 @@ def get_black_list(id_hab,dia,mes,año):
         print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
     #---
 #---
-
-print('today: ',today)
-
-#reserv_day = get_reservation_dates('2017-09-15')
-#print(reserv_day)
+#--- FUNCION PARA INSERTAR UN REGISTRO DE PRECIOS EN "SCR_CALENDARIO_ANALISIS"
 def insert_price(t_min,t_max,t_prom,propiedad,date,cd_min,cd_max,cd_prom,cd_total,cd_disp,price,cant_reservas):
     #---
     try:
@@ -299,7 +302,8 @@ def insert_price(t_min,t_max,t_prom,propiedad,date,cd_min,cd_max,cd_prom,cd_tota
     #---
     except _mssql.MssqlDatabaseException as e:
         print('Error #5 -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
-
+#---
+#--- FUNCION PARA ACTUALIZAR UN REGISTRO DE PRECIOS EN "SCR_CALENDARIO_ANALISIS"
 def update_price(reg_id,t_min,t_max,t_prom,propiedad,date,cd_min,cd_max,cd_prom,cd_total,cd_disp,price,cant_reservas):
     #---
     try:
@@ -316,23 +320,24 @@ def update_price(reg_id,t_min,t_max,t_prom,propiedad,date,cd_min,cd_max,cd_prom,
     except _mssql.MssqlDatabaseException as e:
         print('Error #5 -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
 #---
-
-
+#--- INICIA EL RECORRIDO POR LOS DATOS DE PORTALES.
 for portal in SETTING:
     #--
-    iteration = 0
-    today = add_days(today,portal[5])
+    iteration = 0 #<--- conteo de días.
+    today = add_days(today,portal[5]) #<--- Se obtiene el día con que inicia el PORTAL, PORTAL[5] = BEGIN_DAY
+    PROPIEDADES = get_properties(portal[0]) #<--- Se obtienen las PROPIEDADES que tiene el PORTAL.
+    CONSULTA = get_consultas(portal[0]) #<--- Se obtinene las CONSULTAS por PORTAL
     print('Begin Date: ',today)
-    short_date =  add_days(today,int(portal[8]))
+    short_date =  add_days(today,int(portal[8])) #<--- Se calcula los Días Proximos, portal[8] = NEAR_DAYS
     print('Short date: ', short_date)
-    #--
-    while (iteration <= portal[4]):
+    #---
+    while (iteration <= portal[4]): #<-- ITERACION = 0 Y PORTAL[4] = MAX_DAYS
         #---
-        calc_date = add_days(today,iteration)        
+        calc_date = add_days(today,iteration) #<-- DÍA EN EL QUE INICIA EL CALCULO.       
         print('iteration date: ',calc_date)
         print(iteration)
 
-        #---        
+        #--- SE RECORREN LAS PORPIEDADES DEL PORTAL.
         for prop in PROPIEDADES:
             #---
             last_id = get_last_calc(prop[1], int(calc_date.day),int(calc_date.month),int(calc_date.year))
@@ -340,7 +345,7 @@ for portal in SETTING:
             reservas = get_reservation_dates(calc_date.strftime('%Y-%m-%d'),prop[5])
             cant_reservas = 0
             cant_reservas = len(reservas)            
-            total_reserv = count_property(prop[2],prop[5])
+            total_reserv = count_property(prop[2], prop[5], PROPIEDADES)
             perc_reservas = 0
             #---
             if(cant_reservas != 0):
@@ -349,30 +354,28 @@ for portal in SETTING:
             print('Total reservas', total_reserv, ' --- grupo_id = ', prop[5])
             print('Cantidad reservas', cant_reservas)
             print('Porcentage reservas', perc_reservas)
-            #---
+            #--- LISTA NEGRA.
             if (b_list == None):
                 #---
                 #last_id = None
                 print('las id: ',last_id)
                 #----
                 id_consult = 0
-                consulta_cap = 0
+                consulta_cap = 0 #<-- CONSULTA CAPACIDAD
+                #--- CONSULTAS
                 for consult in CONSULTA:
                     if (consult[6] == prop[8]) and (consult[2] == prop[2]):
                         id_consult = consult[0]
                         consulta_cap = consult[6]
-                print(id_consult)
-
-                
+                print(id_consult)               
                 print('iteration date: ',calc_date)
-
+                #---
                 data_Extra = get_extract_dates(calc_date.strftime('%Y-%m-%d'),prop[2],id_consult,"",portal[7],portal[6])
                 print("Competencia Total: ",len(data_Extra))
-
                 #---
                 COMPETENCIA_DIRECTA = get_direct_comp(prop[1])
                 print('Competencia Directa Total: ', len(COMPETENCIA_DIRECTA))
-                CD = []
+                CD = [] #<--- COMPETENCIA DIRECTA
                 #---
                 for anuncios in data_Extra:
                     #---
@@ -381,7 +384,7 @@ for portal in SETTING:
                             CD.append(anuncios)
                 #---
                 print('Competencia Directa Disponible: ', len(CD))
-                percentage = 0
+                percentage = 0 #<--- PORCENTAGE
                 allow = False
                 if (len(CD) > 0 and len(COMPETENCIA_DIRECTA) > 0):
                     percentage = (len(CD) / len(COMPETENCIA_DIRECTA)) * 100
@@ -390,6 +393,7 @@ for portal in SETTING:
                 print('Porcentage disponible: ',percentage) 
                 #print(CD)
                 if (len(CD) > 0):
+                    #----COMPENTENCIA DIRECTA CALCULOS
                     CD_data = get_one_field_data(CD, 7)
                     CD_precio = round(stats.mean(CD_data),2)            
                     CD_min_price = min(i for i in CD_data if i > int(portal[6]))
@@ -404,6 +408,7 @@ for portal in SETTING:
                 print("CD Max Price", CD_max_price)
                 #---
                 if (len(data_Extra) > 0):
+                    #----COMPENTENCIA TOTAL CALCULOS
                     data = get_one_field_data(data_Extra,7)
                     PRECIO_MEDIA = round(stats.mean(data),2)            
                     min_price = min(i for i in data if i > int(portal[6]))
@@ -458,8 +463,7 @@ for portal in SETTING:
                     print('Se actualizara el registro anterior')
                     update_price(last_id,b_list,b_list,b_list,prop[1],calc_date,b_list,b_list,b_list,0,0,b_list,cant_reservas)
 
-            print('---------------------------------')
-            
+            print('---------------------------------')            
         #---
         iteration += 1
         print(change_State(True))
