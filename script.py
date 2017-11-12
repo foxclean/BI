@@ -427,9 +427,9 @@ for portal in SETTING:
                     price = PRECIO_MEDIA
 
                 if (perc_reservas >= portal[10]):
-                	price = float(price) + portal[9]
+                	price = Decimal(price) + portal[9]
                 if (perc_reservas >= portal[12]):
-                	price = float(price) + portal[11]
+                	price = Decimal(price) + portal[11]
 
                 #-----
                 if (calc_date <= short_date):
