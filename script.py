@@ -395,8 +395,12 @@ for portal in SETTING:
                 if (len(CD) > 0):
                     #----COMPENTENCIA DIRECTA CALCULOS
                     CD_data = get_one_field_data(CD, 7)
-                    CD_precio = round(stats.mean(CD_data),2)            
-                    CD_min_price = min(i for i in CD_data if i > int(portal[6]))
+                    CD_precio = round(stats.mean(CD_data),2)
+                    if (len(CD) > 1):
+                        CD_min_price = min(i for i in CD_data if i > int(portal[6]))
+                    else:
+                        CD_min_price = CD_data[0]
+
                     CD_max_price = max(CD_data)
                 else:
                     CD_precio = 0            
@@ -410,8 +414,11 @@ for portal in SETTING:
                 if (len(data_Extra) > 0):
                     #----COMPENTENCIA TOTAL CALCULOS
                     data = get_one_field_data(data_Extra,7)
-                    PRECIO_MEDIA = round(stats.mean(data),2)            
-                    min_price = min(i for i in data if i > int(portal[6]))
+                    PRECIO_MEDIA = round(stats.mean(data),2)    
+                    if (len(data_Extra) > 1):
+                        min_price = min(i for i in data if i > int(portal[6]))
+                    else:
+                        min_price = data[0]
                     max_price = max(data)
                 else:
                     PRECIO_MEDIA = 0          
