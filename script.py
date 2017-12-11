@@ -49,11 +49,12 @@ today = (datetime.datetime.now()).date() #<--- Variable donde se almacena la fec
 #-- 
 #------------- Inicia Consulta a BD para Obtener Datos Almacenados. -------------#
 #---
+
 try:
     #---
     with connection.cursor() as cursor:
         #--- Extraccion de los datos de los portales a analizar de SCR_PORTALES
-        sql = "SELECT ID_PORTAL, NOMBRE, URL, DIAS_VERIFICACION, MAX_DAYS, BEGIN_DAY, PRICE_MIN, PRICE_MAX, NEAR_DAYS, INCREMENTO_1, RESERVAS_MAX_1, INCREMENTO_2, RESERVAS_MAX_2 FROM SCR_PORTALES WHERE CALC_PRICE = 1"        
+        sql = "SELECT ID_PORTAL, NOMBRE, URL, DIAS_VERIFICACION, MAX_DAYS, BEGIN_DAY, PRICE_MIN, PRICE_MAX, NEAR_DAYS, INCREMENTO_1, RESERVAS_MAX_1, INCREMENTO_2, RESERVAS_MAX_2, CAPACITY_SEARCH FROM SCR_PORTALES WHERE CALC_PRICE = 1"
         cursor.execute(sql)
         SETTING = cursor.fetchall() #<--- Lista con los portales activos.
         #---
@@ -156,6 +157,33 @@ def get_extract_dates(day,portal,consulta,tipo,max_price, min_price):
             #--- Extraccion de los datos de los ANUNCIOS extraidos en ANUNCIANTES.
             sql = "SELECT  max([ID_ANUNCIANTE]) as ID_ANUNCIANTE, max([ID_COMPETENCIA]) as ID_COMPETENCIA, max([ID_ANUNCIO]) as ID_ANUNCIO, max([FECHAI]) as FECHAI, max([FECHAF]) as FECHAF, max([ORDEN]) as ORDEN, max([ID_PORTAL]) as ID_PORTAL, max([PRECIO]) as PRECIO, max([ID_CONSULTA]) as ID_CONSULTA, max([TIPO]) as TIPO, max([N_CAMA]) as N_CAMA, max([RATIO]) as RATIO, max([FECHA_INGRESO]) as FECHA_INGRESO FROM [foxclea_tareas].[foxclea_tareas].[SCR_ANUNCIANTES] WHERE foxclea_tareas.solo_fecha(%s) between [FECHAI] and [FECHAF]-1 AND ID_PORTAL = %s AND ID_CONSULTA = %s  AND PRECIO < %s GROUP BY ID_COMPETENCIA ORDER BY max(FECHA_INGRESO) DESC;"
             cursor.execute(sql,(day,portal,consulta,max_price))
+            #---
+            print('Correcto -> Extracción de los datos de ANUNCIOS extraidos')
+            return cursor.fetchall()  # <--- Lista con los anuncios extraidos
+    #---
+    except _mssql.MssqlDatabaseException as e:
+        print('Error -> Número de error: ',e.number,' - ','Severidad: ', e.severity)
+#---
+#--- FUNCIÓN PARA DEVOLVER LOS ANUNCIOS EXTRAIDOS EN DETERMINADAS FECHAS.
+def get_extract_dates_specific(day,portal,capacity,tipo,max_price, min_price):
+#---
+    try:
+        #---
+        with connection.cursor() as cursor:
+            #--- Extraccion de los datos de los ANUNCIOS extraidos en ANUNCIANTES.
+            sql = """
+                 SELECT TOP 100 PERCENT MAX(foxclea_tareas.SCR_ANUNCIANTES.ID_ANUNCIANTE) AS ID_ANUNCIANTE, MAX(foxclea_tareas.SCR_ANUNCIANTES.ID_COMPETENCIA) AS ID_COMPETENCIA, 
+                         MAX(foxclea_tareas.SCR_ANUNCIANTES.ID_ANUNCIO) AS ID_ANUNCIO, MAX(foxclea_tareas.SCR_ANUNCIANTES.FECHAI) AS FECHAI, MAX(foxclea_tareas.SCR_ANUNCIANTES.FECHAF) AS FECHAF, 
+                         MAX(foxclea_tareas.SCR_ANUNCIANTES.ORDEN) AS ORDEN, MAX(foxclea_tareas.SCR_ANUNCIANTES.ID_PORTAL) AS ID_PORTAL, MAX(foxclea_tareas.SCR_ANUNCIANTES.PRECIO) AS PRECIO, 
+                         MAX(foxclea_tareas.SCR_ANUNCIANTES.ID_CONSULTA) AS ID_CONSULTA, MAX(foxclea_tareas.SCR_ANUNCIANTES.TIPO) AS TIPO, MAX(foxclea_tareas.SCR_ANUNCIANTES.N_CAMA) AS N_CAMA, 
+                         MAX(foxclea_tareas.SCR_ANUNCIANTES.RATIO) AS RATIO, MAX(foxclea_tareas.SCR_ANUNCIANTES.FECHA_INGRESO) AS FECHA_INGRESO, MAX( foxclea_tareas.SCR_COMPETENCIA.CAPACIDAD) AS CAPACIDAD
+				FROM foxclea_tareas.SCR_ANUNCIANTES LEFT OUTER JOIN
+				foxclea_tareas.SCR_COMPETENCIA ON foxclea_tareas.SCR_ANUNCIANTES.ID_COMPETENCIA = foxclea_tareas.SCR_COMPETENCIA.ID_COMPETENCIA 
+				WHERE foxclea_tareas.solo_fecha(%s) between SCR_ANUNCIANTES.[FECHAI] and SCR_ANUNCIANTES.[FECHAF]-1 AND SCR_COMPETENCIA.CAPACIDAD = %s AND SCR_ANUNCIANTES.ID_PORTAL = %s  AND SCR_ANUNCIANTES.PRECIO < %s
+				GROUP BY foxclea_tareas.SCR_ANUNCIANTES.ID_COMPETENCIA
+				ORDER BY MAX(foxclea_tareas.SCR_ANUNCIANTES.FECHA_INGRESO) DESC;
+            """
+            cursor.execute(sql,(day,capacity,portal,max_price))
             #---
             print('Correcto -> Extracción de los datos de ANUNCIOS extraidos')
             return cursor.fetchall()  # <--- Lista con los anuncios extraidos
@@ -351,14 +379,15 @@ for portal in SETTING:
             if(cant_reservas != 0):
                 perc_reservas = (cant_reservas/total_reserv)
             #---
-            print('Total reservas', total_reserv, ' --- grupo_id = ', prop[5])
-            print('Cantidad reservas', cant_reservas)
-            print('Porcentage reservas', perc_reservas)
+            print("ID Propiedad: ", prop[1])
+            print('Total reservas: ', total_reserv, ' --- grupo_id: ', prop[5])
+            print('Cantidad reservas: ', cant_reservas)
+            print('Porcentage reservas: ', perc_reservas)
             #--- LISTA NEGRA.
             if (b_list == None):
                 #---
                 #last_id = None
-                print('las id: ',last_id)
+                print('Last ID: ', last_id)
                 #----
                 id_consult = 0
                 consulta_cap = 0 #<-- CONSULTA CAPACIDAD
@@ -367,10 +396,14 @@ for portal in SETTING:
                     if (consult[6] == prop[8]) and (consult[2] == prop[2]):
                         id_consult = consult[0]
                         consulta_cap = consult[6]
-                print(id_consult)               
-                print('iteration date: ',calc_date)
+                print("ID Consulta: ", id_consult)
+                print('Iteration Date: ',calc_date)
                 #---
-                data_Extra = get_extract_dates(calc_date.strftime('%Y-%m-%d'),prop[2],id_consult,"",portal[7],portal[6])
+                if(portal[13] == True):
+                    data_Extra = get_extract_dates_specific(calc_date.strftime('%Y-%m-%d'),prop[2],prop[8],"",portal[7],portal[6])
+                else:
+                    data_Extra = get_extract_dates(calc_date.strftime('%Y-%m-%d'),prop[2],id_consult,"",portal[7],portal[6])
+                #---
                 print("Competencia Total: ",len(data_Extra))
                 #---
                 COMPETENCIA_DIRECTA = get_direct_comp(prop[1])
@@ -407,9 +440,9 @@ for portal in SETTING:
                     CD_min_price = 0
                     CD_max_price = 0
                 #---
-                print("CD Precio :", CD_precio) 
-                print("CD Min Price", CD_min_price)
-                print("CD Max Price", CD_max_price)
+                print("CD Precio: ", CD_precio)
+                print("CD Min Price: ", CD_min_price)
+                print("CD Max Price: ", CD_max_price)
                 #---
                 if (len(data_Extra) > 0):
                     #----COMPENTENCIA TOTAL CALCULOS
@@ -441,11 +474,11 @@ for portal in SETTING:
                 #-----
                 if (calc_date <= short_date):
                     price = PRECIO_MEDIA
-                    print('La Fecha esta proxima por lo que se usara el precio total = ', price)
+                    print('La Fecha esta proxima por lo que se usara el precio total: ', price)
                 #---
-                print("CT Precio :", PRECIO_MEDIA)    
-                print("CT Min Price", min_price)
-                print("CT Max Price", max_price)
+                print("CT Precio: ", PRECIO_MEDIA)
+                print("CT Min Price: ", min_price)
+                print("CT Max Price: ", max_price)
                 #--
                 if (last_id == None):
                     print("No hay datos registrados con anterioridad para esta propiedad")
